@@ -1,0 +1,28 @@
+{
+  "name": "sans-server-middleware",
+  "version": "0.0.1",
+  "description": "A sans-server hook runner.",
+  "main": "index.js",
+  "scripts": {
+    "coverage": "nyc mocha test && nyc report --reporter=html",
+    "coverage:report": "nyc mocha test/*.js && nyc report --reporter=text-lcov | coveralls",
+    "test": "mocha test"
+  },
+  "keywords": [
+    "sans-server",
+    "middleware",
+    "hooks"
+  ],
+  "author": "James Speirs <james_speirs@byu.edu>",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "chai": "^4.1.1",
+    "coveralls": "^2.13.1",
+    "mocha": "^3.5.0",
+    "nyc": "^11.1.0"
+  },
+  "bugs": {
+    "url": "https://github.com/byu-oit/sans-server-middleware/issues"
+  },
+  "homepage": "https://github.com/byu-oit/sans-server-middleware#readme"
+}
