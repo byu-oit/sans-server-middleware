@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/byu-oit/sans-server-middleware.svg?branch=master)](https://travis-ci.org/byu-oit/sans-server-middleware)
+[![Coverage Status](https://coveralls.io/repos/github/byu-oit/sans-server-middleware/badge.svg?branch=master)](https://coveralls.io/github/byu-oit/sans-server-middleware?branch=master)
+
 # sans-server-middleware
 
 A [sans-server](https://www.npmjs.com/package/sans-server) hook runner.
