@@ -62,7 +62,8 @@ Middleware.prototype.add = function(hook) {
                 action: 'skip',
                 category: name,
                 details: { hook: hook },
-                message: 'Has error and hook is not error handling'
+                message: 'Has error and hook is not error handling',
+                timestamp: Date.now()
             });
             next(err);
 
@@ -71,7 +72,8 @@ Middleware.prototype.add = function(hook) {
                 action: 'skip',
                 category: name,
                 details: { hook: hook },
-                message: 'No error and hook is for error handling'
+                message: 'No error and hook is for error handling',
+                timestamp: Date.now()
             });
             next();
 
@@ -85,7 +87,8 @@ Middleware.prototype.add = function(hook) {
                     action: 'end',
                     category: name,
                     details: { hook: hook },
-                    message: 'Run duration: ' + seconds(Date.now() - start)
+                    message: 'Run duration: ' + seconds(Date.now() - start),
+                    timestamp: Date.now()
                 });
                 next(err);
             };
@@ -93,7 +96,8 @@ Middleware.prototype.add = function(hook) {
             if (err) args.unshift(err);
 
             // run middleware
-            req.emit('log', { action: 'start', category: name, details: { hook: hook }, message: '' });
+            req.emit('log', { action: 'start', category: name, details: { hook: hook }, message: '', timestamp: Date.now() });
+
             try {
                 hook.apply(context, args);
             } catch (err) {
