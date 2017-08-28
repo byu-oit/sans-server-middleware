@@ -201,6 +201,29 @@ describe('sans-server-middleware', () => {
             setTimeout(next, 1005);
         });
         return m.run(req, res);
-    })
+    });
+
+    it('from', () => {
+        let s = '';
+        const ar = [];
+        ar.push((req, res, next) => {
+            s += 'a';
+            next();
+        });
+        ar.push((req, res, next) => {
+            s += 'b';
+            next();
+        });
+        m.from(ar);
+        return m.run(req, res)
+            .then(() => expect(s).to.equal('ab'));
+    });
+
+    it('has length', () => {
+        m.add((req, res, next) => {});
+        m.add((req, res, next) => {});
+        m.add((err, req, res, next) => {});
+        expect(m.length).to.equal(3);
+    });
 
 });

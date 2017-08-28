@@ -26,6 +26,14 @@ module.exports = Middleware;
 function Middleware() {
     if (!(this instanceof Middleware)) return new Middleware();
     this.store = [];
+
+    /**
+     * Returns the length of the middleware.
+     * @type {number}
+     */
+    Object.defineProperty(this, 'length', {
+        get: () => this.store.length
+    });
 }
 
 /**
@@ -96,6 +104,16 @@ Middleware.prototype.add = function(hook) {
     };
 
     store.push(wrapped);
+};
+
+/**
+ * Add an iterable of hook functions.
+ * @param {*} iterable An array like or iterable object.
+ */
+Middleware.prototype.from = function(iterable) {
+    Array.from(iterable).forEach(hook => {
+        this.add(hook);
+    });
 };
 
 /**

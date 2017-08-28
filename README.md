@@ -58,9 +58,14 @@ This constructor is used gather and run hooks that are added to it.
 
 **Methods**
 
-- [add](#) - Add a middleware function.
-- [reverse](#) - Run the added middleware functions in reverse order.
-- [run](#) - Run the added middleware functions.
+- [add](#middlewareadd) - Add a hook function.
+- [from](#middlewarefrom) - Add an array-like or iterable of hook functions.
+- [reverse](#middlewarereverse) - Run the added middleware functions in reverse order.
+- [run](#middlewarerun) - Run the added middleware functions.
+
+**Properties**
+
+- [length](#middlewarelength) - Get the number of hooks attached to the instance.
 
 **Parameters** None
 
@@ -104,6 +109,60 @@ middleware.add(function myHook(req, res, next) {
     // do something ...
     next();
 });
+```
+
+## Middleware#from
+
+Add middleware from an array-like object or an iterable. Each item must be a function.
+
+**Signature** **<code>Middleware#from( iterable ) : undefined</code>**
+
+**Parameters**
+
+| Parameter | Description | Type | Default |
+| --- | --- | --- | --- |
+| iterable | An array-like object or iterable | `Array.<function>` | |
+
+**Returns** undefined
+
+**Example**
+
+```js
+const Middleware = require('sans-server-middleware');
+
+const middleware = new Middleware();
+
+const ar = [];
+ar.push(function myHook(req, res, next) {
+    // do something ...
+    next();
+});
+
+middleware.from(ar);
+```
+
+## Middleware#length
+
+Get the number of hooks that have been added to the instance.
+
+**Signature** **<code>Middleware#length : number</code>**
+
+**Type** `number`
+
+**Example**
+
+```js
+const SansServer = require('sans-server');
+const Middleware = SansServer.Middleware;
+
+const middleware = new Middleware();
+
+middleware.add(function(req, res, next) {
+    // do something ...
+    next();
+});
+
+console.log(middleware.length);     // 1
 ```
 
 ## Middleware#reverse
