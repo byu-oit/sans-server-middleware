@@ -68,7 +68,7 @@ Middleware.prototype.add = function(weight, hook) {
 
     // figure out middleware name and whether it is error middleware
     const length = _.weights.has(weight) ? _.weights.get(weight).length : 0;
-    const name = 'HOOK-' + weight + '-' + (hook.name ? hook.name.toUpperCase() : length + 1);
+    const name = 'HOOK-' + (hook.name ? hook.name.toUpperCase() : length + 1);
     const errHandler = hook.length >= 4;
 
     // create a wrapper around the middleware
