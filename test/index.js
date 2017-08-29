@@ -226,4 +226,55 @@ describe('sans-server-middleware', () => {
         expect(m.length).to.equal(3);
     });
 
+    describe('weight', () => {
+        let m;
+
+        beforeEach(() => {
+            m = new Middleware();
+        });
+
+        it('run in weight order', () => {
+            let s = '';
+            m.add(100, (req, res, next) => {
+                s += 'a';
+                next();
+            });
+            m.add(100, (req, res, next) => {
+                s += 'b';
+                next();
+            });
+            m.add(0, (req, res, next) => {
+                s += 'c';
+                next();
+            });
+            m.add(-10, (req, res, next) => {
+                s += 'd';
+                next();
+            });
+            return m.run(req, res).then(() => expect(s).to.equal('dcab'));
+        });
+
+        it('run in reverse weight order', () => {
+            let s = '';
+            m.add(100, (req, res, next) => {
+                s += 'a';
+                next();
+            });
+            m.add(100, (req, res, next) => {
+                s += 'b';
+                next();
+            });
+            m.add(0, (req, res, next) => {
+                s += 'c';
+                next();
+            });
+            m.add(-10, (req, res, next) => {
+                s += 'd';
+                next();
+            });
+            return m.reverse(req, res).then(() => expect(s).to.equal('bacd'));
+        });
+
+    });
+
 });

@@ -25,23 +25,39 @@ module.exports = Middleware;
  */
 function Middleware() {
     if (!(this instanceof Middleware)) return new Middleware();
-    this.store = [];
+
+    Object.defineProperty(this, '_', {
+        enumerable: false,
+        configurable: false,
+        value: {
+            length: 0,
+            ordered: null,
+            weights: new Map()
+        }
+    });
 
     /**
      * Returns the length of the middleware.
      * @type {number}
      */
     Object.defineProperty(this, 'length', {
-        get: () => this.store.length
+        get: () => this._.length
     });
 }
 
 /**
  * Add a middleware function.
+ * @param {number} [weight=0]
  * @param {function} hook
  */
-Middleware.prototype.add = function(hook) {
-    const store = this.store;
+Middleware.prototype.add = function(weight, hook) {
+    const _ = this._;
+
+    // handle variable parameters
+    if (typeof arguments[0] === 'function') {
+        hook = arguments[0];
+        weight = 0;
+    }
 
     // validate input
     if (typeof hook !== 'function') {
@@ -51,7 +67,8 @@ Middleware.prototype.add = function(hook) {
     }
 
     // figure out middleware name and whether it is error middleware
-    const name = 'HOOK-' + (hook.name ? hook.name.toUpperCase() : store.length + 1);
+    const length = _.weights.has(weight) ? _.weights.get(weight).length : 0;
+    const name = 'HOOK-' + weight + '-' + (hook.name ? hook.name.toUpperCase() : length + 1);
     const errHandler = hook.length >= 4;
 
     // create a wrapper around the middleware
@@ -61,8 +78,8 @@ Middleware.prototype.add = function(hook) {
             req.emit('log', {
                 action: 'skip',
                 category: name,
-                details: { hook: hook },
-                message: 'Has error and hook is not error handling',
+                details: { hook: hook, weight: weight },
+                message: 'Has error and hook is not error handling (Weight: ' + weight + ')',
                 timestamp: Date.now()
             });
             next(err);
@@ -71,8 +88,8 @@ Middleware.prototype.add = function(hook) {
             req.emit('log', {
                 action: 'skip',
                 category: name,
-                details: { hook: hook },
-                message: 'No error and hook is for error handling',
+                details: { hook: hook, weight: weight },
+                message: 'No error and hook is for error handling (Weight: ' + weight + ')',
                 timestamp: Date.now()
             });
             next();
@@ -96,7 +113,7 @@ Middleware.prototype.add = function(hook) {
             if (err) args.unshift(err);
 
             // run middleware
-            req.emit('log', { action: 'start', category: name, details: { hook: hook }, message: '', timestamp: Date.now() });
+            req.emit('log', { action: 'start', category: name, details: { hook: hook }, message: 'Weight: ' + weight, timestamp: Date.now() });
 
             try {
                 hook.apply(context, args);
@@ -107,7 +124,21 @@ Middleware.prototype.add = function(hook) {
         }
     };
 
-    store.push(wrapped);
+    Object.defineProperty(wrapped, 'weight', {
+        enumerable: true,
+        configurable: false,
+        value: weight
+    });
+
+    // add for specified weight
+    if (!_.weights.has(weight)) _.weights.set(weight, []);
+    _.weights.get(weight).push(wrapped);
+
+    // destroy ordered store
+    _.ordered = null;
+
+    // increment length
+    _.length++;
 };
 
 /**
@@ -116,7 +147,7 @@ Middleware.prototype.add = function(hook) {
  */
 Middleware.prototype.from = function(iterable) {
     Array.from(iterable).forEach(hook => {
-        this.add(hook);
+        this.add(hook, 0);
     });
 };
 
@@ -128,7 +159,7 @@ Middleware.prototype.from = function(iterable) {
  * @returns {Promise|undefined}
  */
 Middleware.prototype.reverse = function(req, res, next) {
-    const promise = run(this.store, req, res, true);
+    const promise = run(this, req, res, true);
     if (!next) return promise;
     promise.then(next, next);
 };
@@ -141,9 +172,23 @@ Middleware.prototype.reverse = function(req, res, next) {
  * @returns {Promise|undefined}
  */
 Middleware.prototype.run = function(req, res, next) {
-    const promise = run(this.store, req, res, false);
+    const promise = run(this, req, res, false);
     if (!next) return promise;
     promise.then(next, next);
+};
+
+Middleware.prototype.sort = function() {
+    const weights = this._.weights;
+
+    // store sorted data into two dimensional array
+    const data = [];
+    const keys = Array.from(weights.keys());
+    keys.sort();
+    keys.forEach(weight => data.push(weights.get(weight)));
+
+    // merge
+    const result = [];
+    this._.ordered = result.concat.apply(result, data);
 };
 
 function addCharacters(value, ch, after, length) {
@@ -158,8 +203,9 @@ function addCharacters(value, ch, after, length) {
     return result;
 }
 
-function run(store, req, res, reverse) {
-    const chain = store.slice(0);
+function run(middleware, req, res, reverse) {
+    if (!middleware._.ordered) middleware.sort();
+    const chain = middleware._.ordered.concat();
     return new Promise((resolve, reject) => {
         function next(err) {
             const callback = chain[reverse ? 'pop' : 'shift']();

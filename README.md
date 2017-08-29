@@ -88,12 +88,13 @@ middleware.add(function myHook(req, res, next) {
 
 Add a middleware hook.
 
-**Signature** **<code>Middleware#add( hook ) : undefined</code>**
+**Signature** **<code>Middleware#add( [ weight, ] hook ) : undefined</code>**
 
 **Parameters**
 
 | Parameter | Description | Type | Default |
 | --- | --- | --- | --- |
+| weight | A `number` that represents the weight of the function to add. A hook with a lower weight will run sooner than a hook with a higher weight. | `number` | 0
 | hook | A [middleware function](#hooks-and-middleware). Naming the function will improve log readability. | `function` | |
 
 **Returns** undefined
