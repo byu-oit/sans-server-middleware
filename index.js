@@ -18,13 +18,22 @@
 
 module.exports = Middleware;
 
+const isWin = process.platform === 'win32';
+const figures = {
+    skip: isWin ? '»' : '›',
+    start: isWin ? '►' : '▶',
+    stop: isWin ? '[]' : '◻'
+};
+
 /**
  * Create a new middleware instance.
+ * @params {string} [name='']
  * @returns {Middleware}
  * @constructor
  */
-function Middleware() {
-    if (!(this instanceof Middleware)) return new Middleware();
+function Middleware(name) {
+    if (!(this instanceof Middleware)) return new Middleware(name);
+    this.name = name;
 
     Object.defineProperty(this, '_', {
         enumerable: false,
@@ -51,6 +60,7 @@ function Middleware() {
  * @param {function} hook
  */
 Middleware.prototype.add = function(weight, hook) {
+    const category = this.name;
     const _ = this._;
 
     // handle variable parameters
@@ -68,7 +78,7 @@ Middleware.prototype.add = function(weight, hook) {
 
     // figure out middleware name and whether it is error middleware
     const length = _.weights.has(weight) ? _.weights.get(weight).length : 0;
-    const name = '@ ' + (hook.name ? formatHookName(hook.name) : length + 1);
+    const name = ' ' + (hook.name ? hook.name : length + 1);
     const errHandler = hook.length >= 4;
 
     // create a wrapper around the middleware
@@ -76,20 +86,20 @@ Middleware.prototype.add = function(weight, hook) {
         const context = this;
         if (err && !errHandler) {
             req.emit('log', {
-                action: 'skip',
-                category: name,
+                action: figures.skip + name,
+                category: '[?] ' + category,
                 details: { hook: hook, weight: weight },
-                message: 'Has error and hook is not error handling (Weight: ' + weight + ')',
+                message: 'Hook' + name + ' is not for error handling (Weight: ' + weight + ')',
                 timestamp: Date.now()
             });
             next(err);
 
         } else if (!err && errHandler) {
             req.emit('log', {
-                action: 'skip',
-                category: name,
+                action: figures.skip + name,
+                category: '[?] ' + category,
                 details: { hook: hook, weight: weight },
-                message: 'No error and hook is for error handling (Weight: ' + weight + ')',
+                message: 'Hook' + name + ' is for error handling (Weight: ' + weight + ')',
                 timestamp: Date.now()
             });
             next();
@@ -101,10 +111,10 @@ Middleware.prototype.add = function(weight, hook) {
             // define middleware arguments
             const done = function(err) {
                 req.emit('log', {
-                    action: 'end',
-                    category: name,
-                    details: { hook: hook },
-                    message: 'Run duration: ' + seconds(Date.now() - start),
+                    action: figures.stop + name,
+                    category: '[?] ' + category,
+                    details: { hook: hook, weight: weight },
+                    message: seconds(Date.now() - start) + 's',
                     timestamp: Date.now()
                 });
                 next(err);
@@ -113,7 +123,13 @@ Middleware.prototype.add = function(weight, hook) {
             if (err) args.unshift(err);
 
             // run middleware
-            req.emit('log', { action: 'start', category: name, details: { hook: hook }, message: 'Weight: ' + weight, timestamp: Date.now() });
+            req.emit('log', {
+                action: figures.start + name,
+                category: '[?] ' + category,
+                details: { hook: hook, weight: weight },
+                message: weight,
+                timestamp: Date.now()
+            });
 
             try {
                 hook.apply(context, args);
@@ -203,12 +219,6 @@ function addCharacters(value, ch, after, length) {
     return result;
 }
 
-function formatHookName(name) {
-    return name
-        .replace(/(?!^)([A-Z])/g, function($1){return " "+$1;})
-        .toUpperCase();
-}
-
 function run(middleware, req, res, reverse) {
     if (!middleware._.ordered) middleware.sort();
     const chain = middleware._.ordered.concat();
@@ -218,11 +228,32 @@ function run(middleware, req, res, reverse) {
             if (callback) {
                 callback(err, req, res, next);
             } else if (err) {
+                req.emit('log', {
+                    action: middleware.name,
+                    category: 'hooks [?]',
+                    message: 'rejected',
+                    details: {},
+                    timestamp: Date.now()
+                });
                 reject(err);
             } else {
+                req.emit('log', {
+                    action: middleware.name,
+                    category: 'hooks [?]',
+                    message: 'resolved',
+                    details: {},
+                    timestamp: Date.now()
+                });
                 resolve();
             }
         }
+        req.emit('log', {
+            action: middleware.name,
+            category: 'hooks [?]',
+            message: 'start',
+            details: {},
+            timestamp: Date.now()
+        });
         next();
     });
 }
