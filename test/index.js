@@ -28,7 +28,7 @@ describe('sans-server-middleware', () => {
     });
 
     it('run without middleware', () => {
-        return m.run();
+        return m.run(req, res);
     });
 
     it('does not require new keyword', () => {
