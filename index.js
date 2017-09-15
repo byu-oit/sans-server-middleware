@@ -163,7 +163,7 @@ Middleware.prototype.add = function(weight, hook) {
  */
 Middleware.prototype.from = function(iterable) {
     Array.from(iterable).forEach(hook => {
-        this.add(hook, 0);
+        this.add(0, hook);
     });
 };
 
