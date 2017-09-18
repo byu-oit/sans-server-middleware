@@ -33,7 +33,7 @@ const figures = {
  */
 function Middleware(name) {
     if (!(this instanceof Middleware)) return new Middleware(name);
-    this.name = name;
+    this.name = name || '';
 
     Object.defineProperty(this, '_', {
         enumerable: false,
