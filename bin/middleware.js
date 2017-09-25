@@ -183,7 +183,8 @@ Middleware.prototype.sort = function() {
 function run(middleware, req, res, reverse) {
     if (!middleware._.ordered) middleware.sort();
     const chain = middleware._.ordered.concat();
-    const log = req.log.nest ? req.log.nest('hook runner') : new Log('hook runner');
+    const isRoot = req.log.nest;
+    const log = isRoot ? req.log.nest('hook runner') : new Log('hook runner');
 
     const promise = new Promise((resolve, reject) => {
         function next(err) {
@@ -193,10 +194,12 @@ function run(middleware, req, res, reverse) {
             } else if (err) {
                 log.event('rejected', middleware.name);
                 log.release();
+                if (isRoot) req.emit('log-report', log.report());
                 reject(err);
             } else {
                 log.event('resolved', middleware.name);
                 log.release();
+                if (isRoot) req.emit('log-report', log.report());
                 resolve();
             }
         }
