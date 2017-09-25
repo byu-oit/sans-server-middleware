@@ -75,6 +75,8 @@ Log.prototype.event = function(action, message, details) {
     }
 
     this.events.push(event);
+
+    return event;
 };
 
 Log.prototype.nest = function(category) {
