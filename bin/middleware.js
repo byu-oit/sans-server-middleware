@@ -82,6 +82,7 @@ Middleware.prototype.add = function(weight, hook) {
             this.log = (action, message, details) => {
                 const event = log.event(action, message, details);
                 req.emit('log', event);
+                return this;
             };
             this.log.nest = category => log.nest(category);
         }
