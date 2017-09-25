@@ -16,15 +16,31 @@
  **/
 'use strict';
 const expect        = require('chai').expect;
+const EventEmitter  = require('events');
 const Middleware    = require('../index');
+const seconds       = require('../bin/seconds');
+
+function Request() {}
+Request.prototype = Object.create(EventEmitter.prototype);
+Request.prototype.log = function(action, message, details) {
+    this.emit('log', {
+        action: action,
+        category: null,
+        details: details,
+        message: message,
+        timestamp: Date.now()
+    });
+};
 
 describe('sans-server-middleware', () => {
     let m;
-    const req = { emit: function() {} };
-    const res = { emit: function() {} };
+    let req = {};
+    let res = {};
 
     beforeEach(() => {
-        m = new Middleware();
+        req = new Request();
+        res = {};
+        m = new Middleware('test-middleware');
     });
 
     it('run without middleware', () => {
@@ -273,6 +289,130 @@ describe('sans-server-middleware', () => {
                 next();
             });
             return m.reverse(req, res).then(() => expect(s).to.equal('bacd'));
+        });
+
+    });
+
+    describe('logs', () => {
+
+        it('run with next() middleware', () => {
+            const mw = new Middleware('sub-middleware');
+
+            mw.add(function secondary(req, res, next) {
+                setTimeout(function() {
+                    s += 'c';
+                    req.log('abc', 'wera');
+                    next();
+                }, 50);
+            });
+
+            req.on('log', event => {
+                console.log(JSON.stringify(event, null, 2));
+            });
+            let s = '';
+            m.add(function mwFunction1(req, res, next) {
+                s += 'a';
+                req.log('run', 'something');
+                next();
+            });
+            m.add(function mwFunction2(req, res, next) {
+                s += 'b';
+                req.log('sync', 'in sync');
+                mw.run(req, res, function(err) {
+                    req.log('sync', 'back in');
+                    next(err);
+                });
+                req.log('sync', 'out of sync');
+            });
+            m.add(function errorFunction(err, req, res, next) {
+                next();
+            });
+            m.add(function mwFunction3(req, res, next) {
+                s += 'd';
+                req.log('finish', 'other');
+                next();
+            });
+
+            const start = Date.now();
+            const p = m.run(req, res);
+            return p
+                .then(() => {
+                    expect(s).to.equal('abcd');
+                    console.log(Date.now() - start);
+                    console.log(p.log.report());
+                });
+        });
+
+    });
+
+    describe('seconds', () => {
+
+        it('0 ms', () => {
+            expect(seconds(0)).to.equal('0.000');
+        });
+
+        it('1 ms', () => {
+            expect(seconds(1)).to.equal('0.001');
+        });
+
+        it('10 ms', () => {
+            expect(seconds(10)).to.equal('0.010');
+        });
+
+        it('100 ms', () => {
+            expect(seconds(100)).to.equal('0.100');
+        });
+
+        it('1000 ms', () => {
+            expect(seconds(1000)).to.equal('1.000');
+        });
+
+        it('10000 ms', () => {
+            expect(seconds(10000)).to.equal('10.00');
+        });
+
+        it('100000 ms', () => {
+            expect(seconds(100000)).to.equal('100.0');
+        });
+
+        it('1000000 ms', () => {
+            expect(seconds(1000000)).to.equal('1000 ');
+        });
+
+        it('9999000 ms', () => {
+            expect(seconds(9999000)).to.equal('9999 ');
+        });
+
+        it('10000000 ms', () => {
+            expect(seconds(10000000)).to.equal('9999+');
+        });
+
+        it('11 ms', () => {
+            expect(seconds(11)).to.equal('0.011');
+        });
+
+        it('123 ms', () => {
+            expect(seconds(123)).to.equal('0.123');
+        });
+
+        it('1234 ms', () => {
+            expect(seconds(1234)).to.equal('1.234');
+        });
+
+        it('12345 ms', () => {
+            expect(seconds(12345)).to.equal('12.35');
+        });
+
+        it('123456 ms', () => {
+            expect(seconds(123456)).to.equal('123.5');
+        });
+
+        it('1234567 ms', () => {
+            expect(seconds(1234567)).to.equal('1235 ');
+        });
+
+        it('12345678 ms', () => {
+            expect(seconds(12345678)).to.equal('9999+');
         });
 
     });
