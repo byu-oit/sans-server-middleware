@@ -18,6 +18,7 @@
 const expect        = require('chai').expect;
 const EventEmitter  = require('events');
 const Middleware    = require('../index');
+const proxy         = require('../bin/proxy');
 const seconds       = require('../bin/seconds');
 
 function Request() {}
@@ -242,6 +243,38 @@ describe('sans-server-middleware', () => {
         expect(m.length).to.equal(3);
     });
 
+    it('run twice', () => {
+        let count = 0;
+        const m = new Middleware('test middleware', { log: { advanced: false } });
+        m.add((req, res, next) => next(Error('')));
+        m.add((req, res, next) => next());
+        m.add((err, req, res, next) => next());
+        m.add((req, res, next) => {
+            count++;
+            next();
+        });
+        return m.run(req, res)
+            .then(() => m.run(req, res))
+            .then(() => {
+                expect(count).to.equal(2);
+            })
+    });
+
+    it('internal end with rejection passes to external', () => {
+        const err = Error();
+        const m2 = new Middleware('error producer');
+        m2.add((req, res, next) => {
+            next(err);
+        });
+        m.add((req, res, next) => {
+            m2.run(req, res, e => {
+                expect(e).to.equal(err);
+                next();
+            });
+        });
+        return m.run(req, res);
+    });
+
     describe('weight', () => {
         let m;
 
@@ -295,52 +328,172 @@ describe('sans-server-middleware', () => {
 
     describe('logs', () => {
 
-        it('run with next() middleware', () => {
-            const mw = new Middleware('sub-middleware');
+        function addMiddlewares(outer, inner) {
 
-            mw.add(function secondary(req, res, next) {
+            inner.add(function secondary(req, res, next) {
                 setTimeout(function() {
-                    s += 'c';
                     req.log('abc', 'wera');
                     next();
                 }, 50);
             });
 
-            req.on('log', event => {
-                console.log(JSON.stringify(event, null, 2));
-            });
-            let s = '';
-            m.add(function mwFunction1(req, res, next) {
-                s += 'a';
-                req.log('run', 'something');
+            outer.add(function mwFunction1(req, res, next) {
+                req.log('do');
+                req.log('details', {});
+                req.log('log', 'details 2', 1);
                 next();
             });
-            m.add(function mwFunction2(req, res, next) {
-                s += 'b';
+            outer.add(function mwFunction2(req, res, next) {
                 req.log('sync', 'in sync');
-                mw.run(req, res, function(err) {
+                inner.reverse(req, res, function(err) {
                     req.log('sync', 'back in');
                     next(err);
                 });
                 req.log('sync', 'out of sync');
             });
-            m.add(function errorFunction(err, req, res, next) {
+            outer.add(function errorFunction(err, req, res, next) {
                 next();
             });
-            m.add(function mwFunction3(req, res, next) {
-                s += 'd';
+            outer.add(function mwFunction3(req, res, next) {
                 req.log('finish', 'other');
                 next();
             });
+        }
 
-            const start = Date.now();
-            const p = m.run(req, res);
-            return p
-                .then(() => {
-                    expect(s).to.equal('abcd');
-                    console.log(Date.now() - start);
-                    console.log(p.log.report());
-                });
+        it('normal', () => {
+            const config = { log: { index: true, advanced: false } };
+            const outer = new Middleware('test-middleware', config);
+            const inner = new Middleware('sub-middleware', config);
+            addMiddlewares(outer, inner);
+
+            let report;
+            req.on('log-report', r => report = r);
+
+            return outer.run(req, res).then(() => {
+                console.log(report);
+                const lines = report
+                    .split('\n')
+                    .map(line => line.split('] ')[1].replace(/\([\S\s]+?\)$/, '').replace(/ +$/, '').replace(/\u001b\[\d+m/g, ''));
+
+                expect(lines[0]).to.equal ('  hook-run  test-middleware');
+                expect(lines[1]).to.equal ('  middleware start  mwFunction1');
+                expect(lines[2]).to.equal ('  log  do');
+                expect(lines[3]).to.equal ('  log  details');
+                expect(lines[4]).to.equal ('  log  details 2');
+                expect(lines[5]).to.equal ('  middleware end  mwFunction1');
+                expect(lines[6]).to.equal ('  middleware start  mwFunction2');
+                expect(lines[7]).to.equal ('  sync  in sync');
+                expect(lines[8]).to.equal ('  hook-reverse-run  sub-middleware');
+                expect(lines[9]).to.equal ('  middleware start  secondary');
+                expect(lines[10]).to.equal('  sync  out of sync');
+                expect(lines[11]).to.equal('  abc  wera');
+                expect(lines[12]).to.equal('  middleware end  secondary');
+                expect(lines[13]).to.equal('! sync  back in');
+                expect(lines[14]).to.equal('  hook-resolved  sub-middleware');
+                expect(lines[15]).to.equal('  middleware end  mwFunction2');
+                expect(lines[16]).to.equal('  skipped  Hook errorFunction is for error handling');
+                expect(lines[17]).to.equal('  middleware start  mwFunction3');
+                expect(lines[18]).to.equal('  finish  other');
+                expect(lines[19]).to.equal('  middleware end  mwFunction3');
+                expect(lines[20]).to.equal('  hook-resolved  test-middleware');
+            });
+        });
+
+        it('advanced', () => {
+            const config = { log: { index: true, advanced: true } };
+            const outer = new Middleware('test-middleware', config);
+            const inner = new Middleware('sub-middleware', config);
+            addMiddlewares(outer, inner);
+
+            let report;
+            req.on('log-report', r => report = r);
+
+            return outer.run(req, res).then(() => {
+                console.log(report);
+                const lines = report
+                    .split('\n')
+                    .map(line => line.split('] ')[1].replace(/\([\S\s]+?\)$/, '').replace(/ +$/, '').replace(/\u001b\[\d+m/g, ''));
+
+                expect(lines[0]).to.equal ('> hook-runner');
+                expect(lines[1]).to.equal ('  - run       test-middleware');
+                expect(lines[2]).to.equal ('  > middleware mwFunction1');
+                expect(lines[3]).to.equal ('    - log  do');
+                expect(lines[4]).to.equal ('    - log  details');
+                expect(lines[5]).to.equal ('    - log  details 2');
+                expect(lines[6]).to.equal ('  > middleware mwFunction2');
+                expect(lines[7]).to.equal ('    - sync  in sync');
+                expect(lines[8]).to.equal ('    > hook-runner');
+                expect(lines[9]).to.equal ('      - reverse-run  sub-middleware');
+                expect(lines[10]).to.equal('      > middleware secondary');
+                expect(lines[11]).to.equal('        - abc  wera');
+                expect(lines[12]).to.equal('      - resolved     sub-middleware');
+                expect(lines[13]).to.equal('!   - sync  out of sync');
+                expect(lines[14]).to.equal('    - sync  back in');
+                expect(lines[15]).to.equal('  > middleware errorFunction');
+                expect(lines[16]).to.equal('    - skipped  Hook is for error handling');
+                expect(lines[17]).to.equal('  > middleware mwFunction3');
+                expect(lines[18]).to.equal('    - finish  other');
+                expect(lines[19]).to.equal('  - resolved  test-middleware');
+            });
+        });
+
+        it('proxy not supported', () => {
+            const supported = proxy.supported;
+            proxy.supported = false;
+
+            const config = { log: { index: true, advanced: false, details: true } };
+            const outer = new Middleware('test-middleware', config);
+            const inner = new Middleware('sub-middleware', config);
+            addMiddlewares(outer, inner);
+
+            let report;
+            req.on('log-report', r => report = r);
+
+            return outer.run(req, res).then(() => {
+                proxy.supported = supported;
+
+                console.log(report);
+                const lines = report
+                    .split('\n')
+                    .map(line => {
+                        const ar = line.split('] ');
+                        return ar[1]
+                            ? ar[1].replace(/\([\S\s]+?\)$/, '').replace(/ +$/, '').replace(/\u001b\[\d+m/g, '')
+                            : ar[0];
+                    });
+
+                expect(lines[0]).to.equal ('  hook-run  test-middleware');
+                expect(lines[1]).to.equal ('  middleware start  mwFunction1');
+                expect(lines[2]).to.equal ('  log  do');
+                expect(lines[3]).to.equal ('  log  details');
+                expect(lines[4]).to.equal ('  {}');
+                expect(lines[5]).to.equal ('  log  details 2');
+                expect(lines[6]).to.equal ('  1');
+                expect(lines[7]).to.equal ('  middleware end  mwFunction1');
+                expect(lines[8]).to.equal ('  middleware start  mwFunction2');
+                expect(lines[9]).to.equal ('  sync  in sync');
+                expect(lines[10]).to.equal ('  hook-reverse-run  sub-middleware');
+                expect(lines[11]).to.equal ('  middleware start  secondary');
+                expect(lines[12]).to.equal ('  sync  out of sync');
+                expect(lines[13]).to.equal ('  abc  wera');
+                expect(lines[14]).to.equal('  middleware end  secondary');
+                expect(lines[15]).to.equal('! sync  back in');
+                expect(lines[16]).to.equal('  hook-resolved  sub-middleware');
+                expect(lines[17]).to.equal('  middleware end  mwFunction2');
+                expect(lines[18]).to.equal('  skipped  Hook errorFunction is for error handling');
+                expect(lines[19]).to.equal('  middleware start  mwFunction3');
+                expect(lines[20]).to.equal('  finish  other');
+                expect(lines[21]).to.equal('  middleware end  mwFunction3');
+                expect(lines[22]).to.equal('  hook-resolved  test-middleware');
+            });
+        });
+
+        it('log missing action', () => {
+            m.add((req, res, next) => {
+                expect(() => req.log()).to.throw(/Invalid number of log arguments/);
+                next();
+            });
+            return m.run(req, res);
         });
 
     });
