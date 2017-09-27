@@ -16,23 +16,33 @@
  **/
 'use strict';
 const Log       = require('./log');
+const proxy     = require('./proxy');
 
 module.exports = Middleware;
 
 /**
  * Create a new middleware instance.
  * @params {string} [name='']
+ * @params {object} [config]
  * @returns {Middleware}
  * @constructor
  */
-function Middleware(name) {
+function Middleware(name, config) {
     if (!(this instanceof Middleware)) return new Middleware(name);
     this.name = name || '';
+
+    config = !config || typeof config !== 'object' ? {} : JSON.parse(JSON.stringify(config));
+    if (!config.log || typeof config.log !== 'object') config.log = {};
+    if (!config.log.hasOwnProperty('advanced')) config.log.advanced = true;
+    if (!config.log.hasOwnProperty('index')) config.log.index = false;
+    if (!config.log.hasOwnProperty('details')) config.log.details = false;
+    if (!proxy.supported) config.log.advanced = false;
 
     Object.defineProperty(this, '_', {
         enumerable: false,
         configurable: false,
         value: {
+            config: config,
             length: 0,
             ordered: null,
             weights: new Map()
@@ -55,6 +65,7 @@ function Middleware(name) {
  */
 Middleware.prototype.add = function(weight, hook) {
     const _ = this._;
+    const advanced = this._.config.log.advanced;
 
     // handle variable parameters
     if (typeof arguments[0] === 'function') {
@@ -77,34 +88,25 @@ Middleware.prototype.add = function(weight, hook) {
     // create a wrapper around the middleware
     const wrapped = function(parentLog, err, req, res, next) {
         const log = parentLog.nest('middleware ' + name);
-
-        function Request() {
-            this.log = (action, message, details) => {
-                const event = log.event(action, message, details);
-                req.emit('log', event);
-                return this;
-            };
-            this.log.nest = category => log.nest(category);
-        }
-        Request.prototype = req;
-        const r = new Request();
-
+        const r = proxy.request(req, advanced, log);
 
         function done(err) {
+            if (!advanced) log.event('middleware end', name);
             log.release();
             next(err);
         }
 
         if (err && !errHandler) {
-            log.event('skipped', 'Hook is not for error handling');
+            log.event('skipped', 'Hook ' + (advanced ? '' : name + ' ') + 'is not for error handling');
             next(err);
 
         } else if (!err && errHandler) {
-            log.event('skipped', 'Hook is for error handling');
+            log.event('skipped', 'Hook ' + (advanced ? '' : name + ' ') + 'is for error handling');
             next();
 
         } else {
             try {
+                if (!advanced) log.event('middleware start', name);
                 errHandler ? hook(err, r, res, done) : hook(r, res, done);
             } catch (err) {
                 next(err);
@@ -182,32 +184,32 @@ Middleware.prototype.sort = function() {
 
 function run(middleware, req, res, reverse) {
     if (!middleware._.ordered) middleware.sort();
+    const config = middleware._.config;
     const chain = middleware._.ordered.concat();
-    const isRoot = req.log.nest;
-    const log = isRoot ? req.log.nest('hook runner') : new Log('hook runner');
+    const isRoot = !req.log.nest;
+    const log = isRoot
+        ? new Log('hook-runner', config.log)
+        : req.log.nest('hook-runner');
+    const prefix = config.log.advanced ? '' : 'hook-';
 
-    const promise = new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
         function next(err) {
             const callback = chain[reverse ? 'pop' : 'shift']();
             if (callback) {
                 callback(log, err, req, res, next);
             } else if (err) {
-                log.event('rejected', middleware.name);
+                log.event(prefix + 'rejected', middleware.name);
                 log.release();
                 if (isRoot) req.emit('log-report', log.report());
                 reject(err);
             } else {
-                log.event('resolved', middleware.name);
+                log.event(prefix + 'resolved', middleware.name);
                 log.release();
                 if (isRoot) req.emit('log-report', log.report());
                 resolve();
             }
         }
-        log.event(reverse ? 'reverse run' : 'run', middleware.name);
+        log.event(reverse ? prefix + 'reverse-run' : prefix + 'run', middleware.name);
         next();
     });
-
-    promise.log = log;
-
-    return promise;
 }
