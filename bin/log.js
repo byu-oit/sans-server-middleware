@@ -19,7 +19,9 @@ const seconds       = require('./seconds');
 
 module.exports = Log;
 
-function Log(category, parent) {
+function Log(category, config, parent) {
+
+    this.config = config;
 
     this.category = String(category);
 
@@ -40,26 +42,23 @@ function Log(category, parent) {
 
 Log.prototype.event = function(action, message, details) {
     const event = {
-        active: this.root.active === this,
         action: 'log',
         category: this.category,
         details: undefined,
-        index: this.root.index++,
         message: '',
         timestamp: Date.now()
     };
 
     // figure out what parameters were passed in on args
-    const length = arguments.length;
-    if (length < 1) {
-        const err = Error('Invalid number of log arguments. Expected at least one string. Received: ' + length);
+    if (action === undefined) {
+        const err = Error('Invalid number of log arguments. Expected at least one string.');
         err.code = 'EPARM';
         throw err;
 
-    } else if (length === 1) {
+    } else if (message === undefined) {
         event.message = String(arguments[0]);
 
-    } else if (length === 2) {
+    } else if (details === undefined) {
         if (typeof arguments[1] === 'object') {
             event.message = String(arguments[0]);
             event.details = arguments[1];
@@ -74,13 +73,16 @@ Log.prototype.event = function(action, message, details) {
         event.details = arguments[2];
     }
 
+    event.active = this.root.active === this;
+    event.index = this.root.index++;
+
     this.events.push(event);
 
     return event;
 };
 
 Log.prototype.nest = function(category) {
-    const log = new Log(category, this);
+    const log = new Log(category, this.config, this);
     this.events.push(log);
     return log;
 };
@@ -90,33 +92,41 @@ Log.prototype.release = function() {
     return this.parent;
 };
 
-Log.prototype.report = function(config) {
+Log.prototype.report = function() {
+    const config = this.config;
+    const advanced = config.advanced;
     const events = this.events;
     const root = this.root;
-    const prefix = ' '.repeat(1 + this.depth * 2);
+    const prefix = advanced ? ' '.repeat(1 + this.depth * 2) + '- ' : ' ';
     const indexLength = String(root.index).length;
     const length = events.length;
     const zeros = ' '.repeat(indexLength);
     let results = [];
     let i;
-    let str;
+    let str = '';
 
-    if (!config) config = {};
+    // advanced logging shows category header
+    if (advanced) {
+        str += '[' +
+            (config.index ? ' '.repeat(indexLength) + ' ' : '') +
+            seconds(this.start - root.start) + 's] ' +
+            ' '.repeat(this.depth * 2) + '> ' + this.category;
+        if (this.events.length) str += ' (' + seconds(this.events[this.events.length - 1].timestamp - this.start) + 's)';
+        results.push(str);
+    }
 
-    str = '[' +
-        (config.index ? ' '.repeat(indexLength) + ' ' : '') +
-        seconds(this.start - root.start) + 's] ' +
-        ' '.repeat(this.depth * 2) + '> ' + this.category;
-    if (this.events.length) str += ' (' + seconds(this.events[this.events.length - 1].timestamp - this.start) + 's)';
-    results.push(str);
-
+    // advanced logging matches longest action length
     let longestAction = 0;
-    for (i = 0; i < length; i++) {
-        if (!(events[i] instanceof Log)) {
-            const length = events[i].action.length;
-            if (length > longestAction) longestAction = length;
+    if (advanced) {
+        for (i = 0; i < length; i++) {
+            if (!(events[i] instanceof Log)) {
+                const length = events[i].action.length;
+                if (length > longestAction) longestAction = length;
+            }
         }
     }
+
+    // produce results array
     for (i = 0; i < length; i++) {
         const event = events[i];
         if (event instanceof Log) {
@@ -128,8 +138,8 @@ Log.prototype.report = function(config) {
                 seconds(event.timestamp - root.start) + 's] ' +
                 (event.active ? ' ' : '\u001b[7m!\u001b[0m') +
                 prefix +
-                '- ' + event.action + ' '.repeat(longestAction - event.action.length) +
-                '  ' + event.message;
+                event.action + (advanced ? ' '.repeat(longestAction - event.action.length) : '') +
+                (event.message ? '  ' + event.message : '');
             if (config.details && event.details !== undefined) {
                 const details = typeof event.details === 'object'
                     ? JSON.stringify(event.details, null, 2)
