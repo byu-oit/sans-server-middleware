@@ -400,44 +400,46 @@ describe('sans-server-middleware', () => {
         });
 
         it('advanced', () => {
-            const config = { log: { index: true, advanced: true } };
-            const outer = new Middleware('test-middleware', config);
-            const inner = new Middleware('sub-middleware', config);
-            addMiddlewares(outer, inner);
+            if (proxy.supported) {
+                const config = {log: {index: true, advanced: true}};
+                const outer = new Middleware('test-middleware', config);
+                const inner = new Middleware('sub-middleware', config);
+                addMiddlewares(outer, inner);
 
-            let report;
-            req.on('log-report', r => report = r);
+                let report;
+                req.on('log-report', r => report = r);
 
-            return outer.run(req, res).then(() => {
-                console.log(report);
-                const lines = report
-                    .split('\n')
-                    .map(line => line.split('] ')[1].replace(/\([\S\s]+?\)$/, '').replace(/ +$/, '').replace(/\u001b\[\d+m/g, ''));
+                return outer.run(req, res).then(() => {
+                    console.log(report);
+                    const lines = report
+                        .split('\n')
+                        .map(line => line.split('] ')[1].replace(/\([\S\s]+?\)$/, '').replace(/ +$/, '').replace(/\u001b\[\d+m/g, ''));
 
-                expect(lines[0]).to.equal ('> hook-runner');
-                expect(lines[1]).to.equal ('  - run       test-middleware');
-                expect(lines[2]).to.equal ('  > middleware mwFunction1');
-                expect(lines[3]).to.equal ('    - log  do');
-                expect(lines[4]).to.equal ('    - log  details');
-                expect(lines[5]).to.equal ('    - log  details 2');
-                expect(lines[6]).to.equal ('  > middleware mwFunction2');
-                expect(lines[7]).to.equal ('    - sync  in sync');
-                expect(lines[8]).to.equal ('    > hook-runner');
-                expect(lines[9]).to.equal ('      - reverse-run  sub-middleware');
-                expect(lines[10]).to.equal('      > middleware secondary');
-                expect(lines[11]).to.equal('        - abc  wera');
-                expect(lines[12]).to.equal('      - resolved     sub-middleware');
-                expect(lines[13]).to.equal('!   - sync  out of sync');
-                expect(lines[14]).to.equal('    - sync  back in');
-                expect(lines[15]).to.equal('  > middleware errorFunction');
-                expect(lines[16]).to.equal('    - skipped  Hook is for error handling');
-                expect(lines[17]).to.equal('  > middleware mwFunction3');
-                expect(lines[18]).to.equal('    - finish  other');
-                expect(lines[19]).to.equal('  - resolved  test-middleware');
-            });
+                    expect(lines[0]).to.equal('> hook-runner');
+                    expect(lines[1]).to.equal('  - run       test-middleware');
+                    expect(lines[2]).to.equal('  > middleware mwFunction1');
+                    expect(lines[3]).to.equal('    - log  do');
+                    expect(lines[4]).to.equal('    - log  details');
+                    expect(lines[5]).to.equal('    - log  details 2');
+                    expect(lines[6]).to.equal('  > middleware mwFunction2');
+                    expect(lines[7]).to.equal('    - sync  in sync');
+                    expect(lines[8]).to.equal('    > hook-runner');
+                    expect(lines[9]).to.equal('      - reverse-run  sub-middleware');
+                    expect(lines[10]).to.equal('      > middleware secondary');
+                    expect(lines[11]).to.equal('        - abc  wera');
+                    expect(lines[12]).to.equal('      - resolved     sub-middleware');
+                    expect(lines[13]).to.equal('!   - sync  out of sync');
+                    expect(lines[14]).to.equal('    - sync  back in');
+                    expect(lines[15]).to.equal('  > middleware errorFunction');
+                    expect(lines[16]).to.equal('    - skipped  Hook is for error handling');
+                    expect(lines[17]).to.equal('  > middleware mwFunction3');
+                    expect(lines[18]).to.equal('    - finish  other');
+                    expect(lines[19]).to.equal('  - resolved  test-middleware');
+                });
+            }
         });
 
-        it('proxy not supported', () => {
+        it('force proxy not supported', () => {
             const supported = proxy.supported;
             proxy.supported = false;
 
