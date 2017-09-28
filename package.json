@@ -1,6 +1,6 @@
 {
   "name": "sans-server-middleware",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "A sans-server hook runner.",
   "main": "index.js",
   "scripts": {
@@ -24,5 +24,8 @@
   "bugs": {
     "url": "https://github.com/byu-oit/sans-server-middleware/issues"
   },
-  "homepage": "https://github.com/byu-oit/sans-server-middleware#readme"
+  "homepage": "https://github.com/byu-oit/sans-server-middleware#readme",
+  "dependencies": {
+    "debug": "^3.1.0"
+  }
 }
