@@ -15,7 +15,8 @@
  *    limitations under the License.
  **/
 'use strict';
-const debug     = require('debug')('sans-server-middleware');
+const debug     = require('debug')('sans-server:middleware');
+const util      = require('util');
 
 module.exports = Middleware;
 
@@ -78,22 +79,22 @@ Middleware.prototype.add = function(weight, hook) {
     const wrapped = function(err, req, res, next) {
 
         function done(error) {
-            debug('%s middleware-end %s', req.id, name);
+            log(req, util.format('middleware-end %s', name));
             next(error);
         }
 
         if (err && !errHandler) {
-            debug('%s skipped %s Hook is not for error handling', req.id, name);
+            log(req, util.format('skipped %s Hook is not for error handling', name));
             next(err);
 
         } else if (!err && errHandler) {
-            debug('%s skipped %s Hook is for error handling', req.id, name);
+            log(req, util.format('skipped %s Hook is for error handling', name));
             next();
 
         } else {
             try {
-                debug('%s middleware-start %s', req.id, name);
-                errHandler ? hook(err, req, res, done) : hook(res, res, done);
+                log(req, util.format('middleware-start %s', name));
+                errHandler ? hook(err, req, res, done) : hook(req, res, done);
             } catch (err) {
                 done(err);
             }
@@ -178,14 +179,31 @@ function run(middleware, req, res, reverse) {
             if (callback) {
                 callback(err, req, res, next);
             } else if (err) {
-                debug('%s hook-runner rejected %s', req.id, middleware.name);
+                log(req, util.format('hook-runner rejected %s', middleware.name));
                 reject(err);
             } else {
-                debug('%s hook-runner resolved %s', req.id, middleware.name);
+                log(req, util.format('hook-runner resolved %s', middleware.name));
                 resolve();
             }
         }
-        debug('%s hook-runner %s %s', req.id, reverse ? 'reverse-run' : 'run', middleware.name);
+        log(req, util.format('hook-runner %s %s', reverse ? 'reverse-run' : 'run', middleware.name));
         next();
     });
+}
+
+function log(req, message) {
+
+    /**
+     * A log event.
+     * @event Request#log
+     * @type {{ type: string, data: string, timestamp: number} }
+     */
+    req.emit('log', {
+        type: 'sans-server:middleware',
+        data: message,
+        timestamp: Date.now()
+    });
+
+    debug(req.id + ' ' + message);
+    return this;
 }
