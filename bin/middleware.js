@@ -199,7 +199,7 @@ function log(req, message) {
      * @type {{ type: string, data: string, timestamp: number} }
      */
     req.emit('log', {
-        type: 'sans-server:middleware',
+        type: 'middleware',
         data: message,
         timestamp: Date.now()
     });
