@@ -18,21 +18,12 @@
 const expect        = require('chai').expect;
 const EventEmitter  = require('events');
 const Middleware    = require('../index');
-const seconds       = require('../bin/seconds');
 
 function Request() {
     this.id = String(Math.round(100000 * Math.random()));
 }
 Request.prototype = Object.create(EventEmitter.prototype);
-Request.prototype.log = function(action, message, details) {
-    this.emit('log', {
-        action: action,
-        category: null,
-        details: details,
-        message: message,
-        timestamp: Date.now()
-    });
-};
+Request.prototype.log = function(action, message, details) {};
 
 describe('sans-server-middleware', () => {
     let m;
@@ -327,76 +318,6 @@ describe('sans-server-middleware', () => {
 
     });
 
-    describe('seconds', () => {
 
-        it('0 ms', () => {
-            expect(seconds(0)).to.equal('0.000');
-        });
-
-        it('1 ms', () => {
-            expect(seconds(1)).to.equal('0.001');
-        });
-
-        it('10 ms', () => {
-            expect(seconds(10)).to.equal('0.010');
-        });
-
-        it('100 ms', () => {
-            expect(seconds(100)).to.equal('0.100');
-        });
-
-        it('1000 ms', () => {
-            expect(seconds(1000)).to.equal('1.000');
-        });
-
-        it('10000 ms', () => {
-            expect(seconds(10000)).to.equal('10.00');
-        });
-
-        it('100000 ms', () => {
-            expect(seconds(100000)).to.equal('100.0');
-        });
-
-        it('1000000 ms', () => {
-            expect(seconds(1000000)).to.equal('1000 ');
-        });
-
-        it('9999000 ms', () => {
-            expect(seconds(9999000)).to.equal('9999 ');
-        });
-
-        it('10000000 ms', () => {
-            expect(seconds(10000000)).to.equal('9999+');
-        });
-
-        it('11 ms', () => {
-            expect(seconds(11)).to.equal('0.011');
-        });
-
-        it('123 ms', () => {
-            expect(seconds(123)).to.equal('0.123');
-        });
-
-        it('1234 ms', () => {
-            expect(seconds(1234)).to.equal('1.234');
-        });
-
-        it('12345 ms', () => {
-            expect(seconds(12345)).to.equal('12.35');
-        });
-
-        it('123456 ms', () => {
-            expect(seconds(123456)).to.equal('123.5');
-        });
-
-        it('1234567 ms', () => {
-            expect(seconds(1234567)).to.equal('1235 ');
-        });
-
-        it('12345678 ms', () => {
-            expect(seconds(12345678)).to.equal('9999+');
-        });
-
-    });
 
 });
