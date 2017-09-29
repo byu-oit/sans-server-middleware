@@ -199,6 +199,7 @@ function log(req, message) {
      * @type {{ type: string, data: string, timestamp: number} }
      */
     req.emit('log', {
+        category: 'sans-server',
         type: 'middleware',
         data: message,
         timestamp: Date.now()
