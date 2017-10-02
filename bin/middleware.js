@@ -198,12 +198,16 @@ function log(req, message) {
      * @event Request#log
      * @type {{ type: string, data: string, timestamp: number} }
      */
-    req.emit('log', {
-        category: 'sans-server',
-        type: 'middleware',
-        data: message,
-        timestamp: Date.now()
-    });
+    if (req.emit) {
+        req.emit('log', {
+            category: 'sans-server',
+            type: 'middleware',
+            data: message,
+            timestamp: Date.now()
+        });
+    } else if (req.log) {
+        req.log('middleware', message, {});
+    }
 
     debug(req.id + ' ' + message);
     return this;
