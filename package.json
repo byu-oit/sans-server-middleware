@@ -1,6 +1,6 @@
 {
   "name": "sans-server-middleware",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "A sans-server hook runner.",
   "main": "index.js",
   "scripts": {
