@@ -161,7 +161,7 @@ Middleware.prototype.sort = function() {
     // store sorted data into two dimensional array
     const data = [];
     const keys = Array.from(weights.keys());
-    keys.sort();
+    keys.sort((a, b) => a < b ? -1 : 1);
     keys.forEach(weight => data.push(weights.get(weight)));
 
     // merge
