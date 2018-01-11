@@ -2,7 +2,7 @@
 # This file was automatically generated. It is used for various integrations like creating and updating Software CIs in the CMDB.
 # You are required to maintain Software CI records in the CMDB for all of the deployable software artifacts you maintain.
 # You can fill in the information here and have the integration do that for you or you can do that yourself manually.
-$schemaver: '2.0'
+$schemaver: 2.1
 repo_url: https://github.com/byu-oit/sans-server-middleware  # optional
 software:
   - name: sans-server-middleware  # optional
@@ -27,7 +27,6 @@ software:
       - JavaScript
       - NodeJS
       - Travis-ci.com
-    standard_change_template_id:
     stages:
       development:
         urls:      # optional
@@ -50,7 +49,5 @@ software:
             virtual_server:
             rack_server:
             blade_server:
-    tags: # optional
-      data-sensitivity: confidential
-      team: gro:OIT-App Dev Student Info Mgmt
-      app: sans-server-middleware
+    data_sensitivity: confidential
+    standard_change_template:
